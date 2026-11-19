@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+case "${1:-}" in
+    start) systemctl --user enable --now memory-guard.timer ;;
+    stop)
+        systemctl --user disable --now memory-guard.timer
+        systemctl --user stop memory-guard.service
+        ;;
+    status) systemctl --user status memory-guard.timer ;;
+    *) echo "Usage: memory-guard {start|stop|status}" >&2; exit 2 ;;
+esac

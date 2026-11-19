@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+read -r available swap_free swap_total < <(awk '
+    /^MemTotal:/ { total = $2 }
+    /^MemAvailable:/ { available = $2 }
+    /^SwapTotal:/ { swap_total = $2 }
+    /^SwapFree:/ { swap_free = $2 }
+    END { if (total && available != "") print int(100 * available / total), swap_free, swap_total }
+' /proc/meminfo) || exit 0
+
+pressure=0
+if [[ -r /proc/pressure/memory ]]; then
+    pressure=$(awk '$1 == "some" { split($2, avg, "="); print (avg[2] >= 5) }' /proc/pressure/memory)
+fi
+
+# The service owns this directory for the lifetime of the user session.
+state_dir=${XDG_RUNTIME_DIR:?}/memory-guard
+marker="$state_dir/warned"
+if (( available >= 12 )); then
+    rm -f -- "$marker"
+    exit 0
+fi
+[[ ! -e "$marker" ]] || exit 0
+
+if (( available <= 3 || (available <= 8 && (pressure == 1 || (swap_total > 0 && swap_free * 10 <= swap_total))) )); then
+    if notify-send --app-name=memory-guard --urgency=critical         'System memory is low' "Available RAM: ${available}%. Free swap: $((swap_free / 1024)) MiB. Save your work and close applications you do not need."; then
+        touch -- "$marker"
+        echo "Low memory warning sent (available RAM: ${available}%, free swap: $((swap_free / 1024)) MiB)"
+    fi
+fi

@@ -1,0 +1,10 @@
+[Unit]
+Description=Check for low system memory
+After=graphical-session.target
+
+[Service]
+Type=oneshot
+RuntimeDirectory=memory-guard
+RuntimeDirectoryPreserve=yes
+ExecStart=%h/.local/libexec/memory-guard/check
+TimeoutStartSec=8s
